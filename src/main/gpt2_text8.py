@@ -38,7 +38,7 @@ def train_evaluate(
     train_percentage = 0.8
     val_percentage = 0.1
     test_percentage = 0.1
-    text8_percentage = 0.01
+    text8_percentage = 0.1
 
     # Load the data
     if verbose:

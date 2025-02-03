@@ -1,10 +1,8 @@
 import os
-import requests
-import zipfile
 import torch
 from torch.utils.data import DataLoader
 
-from data.util import encode_text, split_dataset
+from data.util import download_unzip, encode_text, split_dataset
 from typing import Tuple, Dict
 
 
@@ -20,19 +18,10 @@ def load_text8(path: str) -> str:
     """
 
     url = "http://mattmahoney.net/dc/text8.zip"
-    zip_path = os.path.join(path, "text8.zip")
-    text_path = os.path.join(path, "text8")
+    zip_name = "text8"
+    text_path = os.path.join(path, zip_name)
 
-    # Download the file if it doesn't exist
-    if not os.path.exists(text_path):
-        os.makedirs(path, exist_ok=True)
-        response = requests.get(url, stream=True)
-        with open(zip_path, "wb") as f:
-            f.write(response.content)
-
-        # Extract the file
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(path)
+    download_unzip(url, path, zip_name)
 
     # Read the text file
     with open(text_path, "r") as file:

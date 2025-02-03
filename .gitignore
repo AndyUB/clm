@@ -4,5 +4,6 @@ output/
 submit/
 submit.zip
 data/
+!src/data/
 *.pth
 log/

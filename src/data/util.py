@@ -1,3 +1,6 @@
+import os
+import requests
+import zipfile
 import torch
 from torch.utils.data import Dataset, DataLoader
 from typing import Tuple, Dict
@@ -25,6 +28,31 @@ class TextDataset(Dataset):
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.inputs[idx], self.targets[idx]
+
+
+def download_unzip(url: str, path: str, zip_name: str) -> None:
+    """
+    Download and unzip specified file if it doesn't exist.
+
+    Args:
+        url: The URL of the file to be downloaded.
+        path: The directory where the file will be downloaded and unzipped.
+        zip_name: The zip file name without the .zip extension.
+    """
+
+    text_path = os.path.join(path, zip_name)
+    zip_path = f"{text_path}.zip"
+
+    # Download the file if it doesn't exist
+    if not os.path.exists(text_path):
+        os.makedirs(path, exist_ok=True)
+        response = requests.get(url, stream=True)
+        with open(zip_path, "wb") as f:
+            f.write(response.content)
+
+        # Extract the file
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(path)
 
 
 def encode_text(

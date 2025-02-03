@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from typing import Tuple, Callable, List, Any, Dict
+import time
+from typing import Tuple, Callable, Any, Dict
 
 
 def train_model(
@@ -31,9 +32,14 @@ def train_model(
     """
 
     model.train()
+
+    num_batches = len(dataloader)
+    start_time = time.perf_counter()
+    print(f"[{start_time}] # batches = {num_batches}")
+
     for epoch in range(epochs):
         total_loss = 0
-        for inputs, targets in dataloader:
+        for i, (inputs, targets) in enumerate(dataloader):
             inputs: torch.Tensor
             targets: torch.Tensor
             inputs, targets = inputs.to(device), targets.to(device)
@@ -48,6 +54,20 @@ def train_model(
             optimizer.step()
 
             total_loss += loss.item()
+            if verbose and (i + 1) % 10 == 0:
+                curr_time = time.perf_counter()
+                elapsed_time = curr_time - start_time
+                remaining_time = (
+                    elapsed_time
+                    / (epoch * num_batches + i + 1)
+                    * ((epochs - epoch) * num_batches - i - 1)
+                )
+                print(
+                    f"[{curr_time}] epoch {epoch + 1}/{epochs} "
+                    f"batch {i + 1}/{num_batches}: "
+                    f"elapse = {elapsed_time:.4f}s, "
+                    f"remaining = {remaining_time:.4f}s"
+                )
         if verbose:
             print(
                 f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader):.4f}"

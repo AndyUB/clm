@@ -1,5 +1,7 @@
 *.py[cod]
-work/
+# work/
 output/
 submit/
 submit.zip
+data/
+*.pth

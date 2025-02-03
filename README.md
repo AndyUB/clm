@@ -70,14 +70,27 @@ You should see a detailed answer, as well as a success rate.
 
 # Submitting your project
 
-To facilitate reproducibility, we will rely on containerization via Docker.
-Essentially, we will use Docker to guarantee that we can run your program.
+To facilitate reproducibility, we will rely on containerization via Docker. Docker is used to create a consistent environment for developing and running the ML model across different systems. 
+Essentially, we will use Docker to guarantee that we can run your program. 
 If you do not have Docker installed, please install it by following [these instructions](https://docs.docker.com/get-docker/).
 We will not be doing anything very fancy with Docker.
 In fact, we provide you with a starter `Dockerfile`.
-You should install any dependencies in this Dockerfile you require to perform prediction.
+You should install any dependencies in this Dockerfile you require to perform prediction. 
 
-When you submit the project, you must submit a zip file `submit.zip` to Canvas that contains the following:
+The current Dockerfile creates a Docker image using "pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime" which is a very old version of pytorch. 
+You might need to **change this docker image**. Many pre-built images (which already include multiple common dependencies) are available here – [https://hub.docker.com/](https://hub.docker.com/) (e.g., tensorflow, huggingface or even a simple python base)
+
+> You can add additional packages that your code needs using a similar line: `RUN pip install numpy pandas scipy` 
+> 
+> If you are working in a Python/conda environment and have a list of packages, you can also install dependencies easily from a requirements.txt file placed in the same folder as Dockerfile. Add these two lines to the > Dockerfile to automatically install the correct versions of your project dependencies.
+> ```
+> COPY requirements.txt /job/ 
+> RUN pip install -r requirements.txt
+> ```
+
+You must submit the project to Canvas as a zip file (named without whitespace). 
+* Follow the format: **Project447GroupN.zip** where N is your Group no.
+* It should contain the following:
 
 ```
 src  # source code directory for your program
@@ -87,7 +100,11 @@ team.txt  # your team information
 pred.txt  # your predictions for the example data `example/input.txt`
 ```
 
-In `team.txt`, please put your names and NetIDs in the following format:
+For reference, the script `submit.sh` will package this example project for submission. 
+* **Remember to update your names and netIDs** in `submit.sh`
+* **Remember to rename your zip file** before uploading it to Canvas.
+
+In `team.txt`, your names and NetIDs should appear in the following format:
 
 ```
 Name1,NetID1
@@ -121,29 +138,25 @@ We will then evaluate your success rate against the heldout answer key using `gr
 Your performance will contain two metrics obtained on the heldout test data, the first being the success rate, the second being the run time.
 Your run time is calculated as the time it takes us to run the `docker run` command.
 
-For reference, the script `submit.sh` will package this example project for submission.
 For convenience, we have put the command we will likely run to grade your assignment in `grader/grade.sh`.
 You should be able to emulate the grading using the example data by running `bash grader/grade.sh example`, which will write your results to the `output` directory.
 
 
 ## Questions
 As more questions come in, we will create a FAQ here.
-In the mean time, please post your questions to edStem with the tag `Projects -> 447`.
+In the mean time, please post your questions to edStem with the tag `Projects (447)`.
 
 Can we have 2 or 4 instead of 3 members?
 > We strongly prefer that you have 3 members. If you would really like to have a group of 4, please instead do two groups of 2.
 
-How do we sign up groups?
-> We will send you a google form link. Please have one member in the group fill out the form.
-
 Will we get help in selecting datasets? Could we also get tips on finding good corpora?
 > Not at this time. Choosing and preprocessing your data is a key component of practising NLP in the real world and we would like you to experience it first hand.
 
-Is there a max processing time limit?
-> Yes, tentatively 30 minutes to run the test data.
+Is there a maximum processing time limit?
+> Yes, tentatively 30 minutes to run the test data. We will release the sample size soon, it should be tentatively a few thousand samples.
 
 Is there a maximum size limit for the program?
-> Yes, tentatively 1 MB for `src` and 1 GB for your checkpoint
+> Yes, tentatively 1 MB for `src` and ~3 GB for your checkpoint. Your docker image can be ~5 GB.
 
 What does it mean the astronaut "speaks at least one human language"? Will system support mix language .. like mix of English + a different language?
 > Your program may receive input that is not English. The input may be a mix of English and other languages.
@@ -151,5 +164,5 @@ What does it mean the astronaut "speaks at least one human language"? Will syste
 Can test sentences be virtually anything? e.g. they intentionally test robustness
 > Test sentences will not be adversarial. They will be reasonable dialogue utterances.
 
-Do we have unlimited appendix for final report? Such as a 1 page report with a 10 page clarification?
+Do we have an unlimited appendix for the final report, such as a one-page report with a 10-page clarification?
 > No. There will be no appendix.

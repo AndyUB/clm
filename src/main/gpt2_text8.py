@@ -128,7 +128,15 @@ def predict(
     with open(output_path, "w") as file:
         for sentence in sentences:
             predictions = gpt2_predict(
-                model, sentence, char_to_idx, idx_to_char, k, DEVICE, SEQ_LEN
+                model,
+                sentence,
+                char_to_idx,
+                idx_to_char,
+                k,
+                DEVICE,
+                SEQ_LEN,
+                lowercase=True,
+                remove_unknown=True,
             )
             file.write("".join(char for char, _ in predictions) + "\n")
 

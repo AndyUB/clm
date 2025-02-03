@@ -74,6 +74,8 @@ def gpt2_predict(
     k: int,
     device: torch.device,
     seq_len: Optional[int] = None,
+    lowercase: bool = False,
+    remove_unknown: bool = True,
 ) -> List[Tuple[str, float]]:
     """
     Generate predictions using the GPT-2 model.
@@ -97,7 +99,9 @@ def gpt2_predict(
 
     model.eval()
     with torch.no_grad():
-        input_idxs = preprocess_input(prefix, char_to_idx, device)
+        input_idxs = preprocess_input(
+            prefix, char_to_idx, device, lowercase, remove_unknown
+        )
 
         # Get logits and probabilities
         outputs: CausalLMOutputWithCrossAttentions = model(input_idxs)

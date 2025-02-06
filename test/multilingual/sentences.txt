@@ -1,0 +1,11 @@
+Machine learning (ML) is a field of study in artificial intelligence concerned with the development and study of statistical algorithms that can learn from data and generalize to unseen data, and thus perform tasks without explicit instructions.
+机器学习是人工智能的一个分支。
+機械学習とは、経験からの学習により自動で改善するコンピューターアルゴリズムもしくはその研究領域で、人工知能の一種であるとみなされている。
+기계 학습(機械學習) 또는 머신 러닝은 경험을 통해 자동으로 개선하는 컴퓨터 알고리즘의 연구이다.
+El aprendizaje automático (AA); también llamado automatizado, computacional, de máquinas, o maquinal1​, es el subcampo de las ciencias de la computación y una rama de la inteligencia artificial, cuyo objetivo es desarrollar técnicas que permitan que las computadoras aprendan.
+L'apprentissage automatique1,2, apprentissage artificiel1 ou apprentissage statistique est un champ d'étude de l'intelligence artificielle qui se fonde sur des approches mathématiques et statistiques pour donner aux ordinateurs la capacité d'« apprendre » à partir de données, c'est-à-dire d'améliorer leurs performances à résoudre des tâches sans être explicitement programmés pour chacune.
+L'apprendimento automatico è una branca dell'intelligenza artificiale che raccoglie metodi sviluppati negli ultimi decenni del XX secolo in varie comunità scientifiche, sotto diversi nomi quali: statistica computazionale, riconoscimento di pattern, reti neurali artificiali, filtraggio adattivo, teoria dei sistemi dinamici, elaborazione delle immagini, data mining, algoritmi adattivi, ecc; che utilizza metodi statistici per migliorare la performance di un algoritmo nell'identificare pattern nei dati.
+Машинное обучение — класс методов искусственного интеллекта, характерной чертой которых является не прямое решение задачи, а обучение за счёт применения решений множества сходных задач.
+Makine öğrenimi (ML), veriden öğrenebilen ve görünmeyen verilere genelleştirebilen ve dolayısıyla açık talimatlar olmadan görevleri yerine getirebilen istatistiksel algoritmaların geliştirilmesi ve incelenmesiyle ilgilenen, yapay zekâda akademik bir disiplindir.
+Maschinelles Lernen (ML) entwickelt, untersucht und verwendet statistische Algorithmen, auch Lernalgorithmen genannt.
+मशीन शिक्षण या यन्त्र अधिगम या स्वचालित शिक्षण कृत्रिम बुद्धि की एक उपखण्ड है।

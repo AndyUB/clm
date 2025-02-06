@@ -100,19 +100,25 @@ def gpt2_predict(
     """
 
     # Assume that the vocabulary size without the padding token is at least k
-    if pad_token is not None:
-        k += 1
+    if pad_token is None:
+        padded_k = k
+    else:
+        padded_k = k + 1
 
     model.eval()
     with torch.no_grad():
-        input_idxs = preprocess_input(
-            prefix,
-            char_to_idx,
-            device,
-            seq_len=seq_len,
-            lowercase=lowercase,
-            remove_unknown=remove_unknown,
-        )
+        try:
+            input_idxs = preprocess_input(
+                prefix,
+                char_to_idx,
+                device,
+                seq_len=seq_len,
+                lowercase=lowercase,
+                remove_unknown=remove_unknown,
+            )
+        except ValueError as e:
+            print(e)
+            return [("?", 1 / k)] * k
 
         # Get logits and probabilities
         outputs: CausalLMOutputWithCrossAttentions = model(input_idxs)
@@ -120,7 +126,7 @@ def gpt2_predict(
         probs = torch.softmax(logits[0, -1], dim=-1)
 
         # Get top-k predictions
-        top_k = torch.topk(probs, k)
+        top_k = torch.topk(probs, padded_k)
         top_k_indices = top_k.indices.tolist()
         top_k_probs = top_k.values.tolist()
 
@@ -131,7 +137,7 @@ def gpt2_predict(
             predictions = [
                 (char, prob) for char, prob in predictions if char != pad_token
             ]
-            predictions = predictions[: k - 1]
+            predictions = predictions[: padded_k - 1]
         return predictions
 
 

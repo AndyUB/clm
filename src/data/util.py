@@ -177,3 +177,63 @@ def split_dataset(
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
     return train_loader, val_loader, test_loader
+
+
+def augment_sentence(sentence: str, min_len: int = 1) -> List[Tuple[str, str]]:
+    """
+    Perform data augmentation on the sentence by splitting it into
+    (prefix, target) pairs.
+
+    Args:
+        sentence: The sentence to be augmented.
+        min_len: The minimum length of the prefix.
+
+    Return:
+        A list of (prefix, target) pairs.
+    """
+
+    if min_len < 1:
+        raise ValueError("min_len must be at least 1.")
+    if len(sentence) < min_len + 1:
+        raise ValueError(
+            f"The sentence must be at least {min_len + 1} characters long."
+        )
+    augmented: List[Tuple[str, str]] = []
+    for i in range(min_len, len(sentence)):
+        augmented.append((sentence[:i], sentence[i]))
+    return augmented
+
+
+def augment_sentences(
+    sentences_path: str, output_dir: str, min_len: int = 1
+) -> List[Tuple[str, str]]:
+    """
+    Perform data augmentation on the sentences in the file by splitting them
+    into (prefix, target) pairs. Write the augmented prefixes to input.txt
+    and the targets to answer.txt in the output directory.
+
+    Args:
+        sentences_path: The path to the file containing the sentences.
+        output_dir: The directory where output files will be written.
+        min_len: The minimum length of the prefix.
+
+    Return:
+        List of augmented (prefix, target) pairs.
+    """
+
+    with open(sentences_path, "r") as f:
+        sentences = f.readlines()
+    augmented: List[Tuple[str, str]] = []
+    for sentence in sentences:
+        sentence = sentence[:-1]  # Remove the newline character
+        augmented.extend(augment_sentence(sentence, min_len))
+
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, "input.txt"), "w") as f:
+        for prefix, _ in augmented:
+            f.write(prefix + "\n")
+    with open(os.path.join(output_dir, "answer.txt"), "w") as f:
+        for _, target in augmented:
+            f.write(target + "\n")
+
+    return augmented

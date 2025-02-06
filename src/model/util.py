@@ -145,7 +145,7 @@ def preprocess_input(
     seq_len: int = None,
     lowercase: bool = False,
     remove_unknown: bool = True,
-):
+) -> torch.Tensor:
     """
     Convert the text to a tensor of indices.
 
@@ -167,6 +167,10 @@ def preprocess_input(
         text = "".join(char for char in text if char in char_to_idx)
     if seq_len is not None:
         text = text[-seq_len:]
+
+    if len(text) == 0:
+        raise ValueError("[ERROR] Empty input prefix.")
+
     return (
         torch.tensor([char_to_idx[char] for char in text], dtype=torch.long)
         .unsqueeze(0)

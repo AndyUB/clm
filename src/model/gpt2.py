@@ -73,6 +73,7 @@ def gpt2_predict(
     idx_to_char: Dict[int, str],
     k: int,
     device: torch.device,
+    pad_token: Optional[str] = None,
     seq_len: Optional[int] = None,
     lowercase: bool = False,
     remove_unknown: bool = True,
@@ -87,12 +88,20 @@ def gpt2_predict(
         idx_to_char: The index to character mapping.
         k: k for top-k predictions.
         device: The device to run the model on.
+        pad_token: The padding token. If None, no padding is used. The padding token
+            won't be included in the predictions.
         seq_len: The length of the sequence. If the prefix is longer than the
             sequence length, it is truncated. If None, the full sequence is used.
+        lowercase: Whether to convert the input to lowercase.
+        remove_unknown: Whether to remove unknown characters from the input.
 
     Return:
         A list of top-k predictions, each containing a character and its probability.
     """
+
+    # Assume that the vocabulary size without the padding token is at least k
+    if pad_token is not None:
+        k += 1
 
     if seq_len is not None:
         prefix = prefix[-seq_len:]
@@ -116,6 +125,9 @@ def gpt2_predict(
         predictions = [
             (idx_to_char[idx], prob) for idx, prob in zip(top_k_indices, top_k_probs)
         ]
+        if pad_token is not None:
+            predictions = [(char, prob) for char, prob in predictions if char != pad_token]
+            predictions = predictions[:k - 1]
         return predictions
 
 

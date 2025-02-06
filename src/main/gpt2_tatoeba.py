@@ -1,18 +1,18 @@
 import torch
 from argparse import Namespace
 
-from data.enwik8 import get_enwik8_dataloaders
+from data.tatoeba import get_tatoeba_dataloaders
 from main.util import parse_args, gpt2_train_eval, gpt2_inference
 
 
-def train_gpt2_on_enwik8(
+def train_gpt2_on_tatoeba(
     data_path: str, output_path: str, k: int, verbose: bool = True
 ) -> None:
     """
-    Train and evaluate GPT-2 on the enwik8 dataset.
+    Train and evaluate GPT-2 on the tatoeba dataset.
 
     Args:
-        data_path: The path to the enwik8 dataset.
+        data_path: The path to the tatoeba dataset.
         output_path: The path to save the model and mappings.
         k: k for top-k accuracy.
         verbose: Whether to print outputs.
@@ -27,19 +27,19 @@ def train_gpt2_on_enwik8(
     train_percentage = 0.8
     val_percentage = 0.1
     test_percentage = 0.1
-    enwik8_percentage = 0.1
+    tatoeba_percentage = 0.01
 
     # Load the data
     if verbose:
         print("Loading data...")
-    char_to_idx, _, pad_token, train_loader, val_loader, test_loader = get_enwik8_dataloaders(
+    char_to_idx, _, pad_token, train_loader, val_loader, test_loader = get_tatoeba_dataloaders(
         data_path,
         SEQ_LEN,
         BATCH_SIZE,
         train_percentage,
         val_percentage,
         test_percentage,
-        enwik8_percentage,
+        tatoeba_percentage,
     )
     vocab_size = len(char_to_idx)
     if verbose:
@@ -53,7 +53,7 @@ def train_gpt2_on_enwik8(
         EPOCHS,
         LEARNING_RATE,
         output_path,
-        f"gpt2_{enwik8_percentage}enwik8",
+        f"gpt2_{tatoeba_percentage}tatoeba",
         char_to_idx,
         k,
         DEVICE,
@@ -64,14 +64,14 @@ def train_gpt2_on_enwik8(
 
 def main(args: Namespace):
     """
-    Train and evaluate GPT-2 on enwik8 dataset, or generate predictions.
+    Train and evaluate GPT-2 on tatoeba dataset, or generate predictions.
 
     Args:
         args: Arguments parsed from the command line.
     """
 
     if args.mode == "train":
-        train_gpt2_on_enwik8(args.data_path, args.output_path, args.k)
+        train_gpt2_on_tatoeba(args.data_path, args.output_path, args.k)
     elif args.mode == "predict":
         gpt2_inference(args.model_path, args.input_path, args.output_path, args.k)
     else:

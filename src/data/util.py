@@ -3,7 +3,7 @@ import requests
 import zipfile
 import torch
 from torch.utils.data import Dataset, DataLoader
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List, Union, Optional
 
 
 class TextDataset(Dataset):
@@ -56,13 +56,16 @@ def download_unzip(url: str, path: str, zip_name: str) -> None:
 
 
 def encode_text(
-    text: str, seq_len: int, unique_chars: str
+    text: Union[str, List[str]],
+    seq_len: int,
+    unique_chars: str,
+    pad_token: Optional[str] = "[PAD]",
 ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, int], Dict[int, str]]:
     """
     Divide the text into sequences then encode each sequence into inputs and targets.
 
     Args:
-        text: The text to be encoded.
+        text: The text to be encoded. It can be a long string or a list of sentences.
         seq_len: The length of each sequence.
         unique_chars: The unique characters in the text.
 
@@ -71,26 +74,58 @@ def encode_text(
         targets: The target tensors.
         char_to_idx: A dictionary that maps each character to its index.
         idx_to_char: A dictionary that maps each index to its character.
+        pad_token: The padding token. If None, no padding is used.
     """
 
+    if isinstance(text, str):
+        text = [text]
+
     char_to_idx = {char: idx for idx, char in enumerate(unique_chars)}
+    if pad_token is not None:
+        char_to_idx[pad_token] = len(char_to_idx)
     idx_to_char = {idx: char for char, idx in char_to_idx.items()}
 
-    encoded_text = torch.tensor(
-        [char_to_idx[char] for char in text if char in char_to_idx], dtype=torch.long
-    )
-
-    num_sequences = len(encoded_text) // (seq_len + 1)
     inputs = []
     targets = []
-    for i in range(num_sequences):
-        start = i * (seq_len + 1)
-        end = start + seq_len + 1
-        sequence = encoded_text[start:end]
-        inputs.append(sequence[:-1])
-        targets.append(sequence[1:])
+    for sentence in text:
+        encoded_sentence = torch.tensor(
+            [char_to_idx[char] for char in sentence if char in char_to_idx],
+            dtype=torch.long,
+        )
+        if pad_token is not None and len(encoded_sentence) % (seq_len + 1) != 0:
+            if len(encoded_sentence) < seq_len + 1:
+                # Sentence is too short, pad it
+                padding = torch.tensor(
+                    [char_to_idx[pad_token]] * (seq_len + 1 - len(encoded_sentence)),
+                    dtype=torch.long,
+                )
+                encoded_sentence = torch.cat([encoded_sentence, padding])
+            else:
+                # Use the last (seq_len + 1) characters as the last sequence
+                padding = encoded_sentence[-(seq_len + 1) :]
+                encoded_sentence = torch.cat(
+                    [
+                        encoded_sentence[
+                            : len(encoded_sentence) // (seq_len + 1) * (seq_len + 1)
+                        ],
+                        padding,
+                    ]
+                )
+        num_sequences = len(encoded_sentence) // (seq_len + 1)
+        for i in range(num_sequences):
+            start = i * (seq_len + 1)
+            end = start + seq_len + 1
+            sequence = encoded_sentence[start:end]
+            inputs.append(sequence[:-1])
+            targets.append(sequence[1:])
 
-    return torch.stack(inputs), torch.stack(targets), char_to_idx, idx_to_char
+    return (
+        torch.stack(inputs),
+        torch.stack(targets),
+        char_to_idx,
+        idx_to_char,
+        pad_token,
+    )
 
 
 def split_dataset(

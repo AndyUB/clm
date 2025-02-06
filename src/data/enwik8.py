@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from data.util import download_unzip, encode_text, split_dataset
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 
 
 def load_enwik8(path: str, verbose: bool = False) -> str:
@@ -87,7 +87,7 @@ def preprocess_enwik8(text: str, verbose: bool = True) -> str:
 
 def encode_enwik8(
     text: str, seq_len: int, percentage: float = 1
-) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, int], Dict[int, str]]:
+) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, int], Dict[int, str], Optional[str]]:
     """
     Encode the enwik8 dataset into sequences of characters.
 
@@ -98,12 +98,12 @@ def encode_enwik8(
 
     Return:
         Encoded inputs, targets, character to index mapping,
-        and index to character mapping.
+        index to character mapping, padding token.
     """
 
     unique_chars = get_enwik8_unique_chars(text)
     text = text[: int(len(text) * percentage)]
-    return encode_text(text, seq_len, unique_chars)
+    return encode_text(text, seq_len, unique_chars, pad_token=None)
 
 
 def get_enwik8_dataloaders(
@@ -114,7 +114,9 @@ def get_enwik8_dataloaders(
     val_percentage: float,
     test_percentage: float,
     enwik8_percentage: float = 1,
-) -> Tuple[Dict[str, int], Dict[int, str], DataLoader, DataLoader, DataLoader]:
+) -> Tuple[
+    Dict[str, int], Dict[int, str], Optional[str], DataLoader, DataLoader, DataLoader
+]:
     """
     Get the data loaders for the enwik8 dataset.
 
@@ -128,18 +130,19 @@ def get_enwik8_dataloaders(
         enwik8_percentage: The percentage of the enwik8 dataset to be used.
 
     Return:
-        The character-to-index mapping, index-to-character mapping, and
-        training, validation, and test data loaders.
+        The character-to-index mapping, index-to-character mapping, padding token,
+        and training, validation, and test data loaders.
     """
 
     text = load_enwik8(path)
     text = preprocess_enwik8(text)
-    inputs, targets, char_to_idx, idx_to_char = encode_enwik8(
+    inputs, targets, char_to_idx, idx_to_char, pad_token = encode_enwik8(
         text, seq_len, enwik8_percentage
     )
     return (
         char_to_idx,
         idx_to_char,
+        pad_token,
         *split_dataset(
             inputs,
             targets,

@@ -27,7 +27,7 @@ def train_gpt2_on_tatoeba(
     train_percentage = 0.8
     val_percentage = 0.1
     test_percentage = 0.1
-    tatoeba_percentage = 0.01
+    tatoeba_percentage = 0.05
 
     # Load the data
     if verbose:

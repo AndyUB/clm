@@ -142,6 +142,7 @@ def preprocess_input(
     text: str,
     char_to_idx: Dict[str, int],
     device: torch.device,
+    seq_len: int = None,
     lowercase: bool = False,
     remove_unknown: bool = True,
 ):
@@ -152,6 +153,7 @@ def preprocess_input(
         text: The text to be processed.
         char_to_idx: The character-to-index mapping.
         lowercase: Whether to convert the text to lowercase.
+        seq_len: The length of the sequence. If None, the full sequence is used.
         remove_unknown: Whether to remove unknown characters.
         device: The device the tensor resides on.
 
@@ -163,6 +165,8 @@ def preprocess_input(
         text = text.lower()
     if remove_unknown:
         text = "".join(char for char in text if char in char_to_idx)
+    if seq_len is not None:
+        text = text[-seq_len:]
     return (
         torch.tensor([char_to_idx[char] for char in text], dtype=torch.long)
         .unsqueeze(0)

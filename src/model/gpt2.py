@@ -103,13 +103,15 @@ def gpt2_predict(
     if pad_token is not None:
         k += 1
 
-    if seq_len is not None:
-        prefix = prefix[-seq_len:]
-
     model.eval()
     with torch.no_grad():
         input_idxs = preprocess_input(
-            prefix, char_to_idx, device, lowercase, remove_unknown
+            prefix,
+            char_to_idx,
+            device,
+            seq_len=seq_len,
+            lowercase=lowercase,
+            remove_unknown=remove_unknown,
         )
 
         # Get logits and probabilities
@@ -126,8 +128,10 @@ def gpt2_predict(
             (idx_to_char[idx], prob) for idx, prob in zip(top_k_indices, top_k_probs)
         ]
         if pad_token is not None:
-            predictions = [(char, prob) for char, prob in predictions if char != pad_token]
-            predictions = predictions[:k - 1]
+            predictions = [
+                (char, prob) for char, prob in predictions if char != pad_token
+            ]
+            predictions = predictions[: k - 1]
         return predictions
 
 

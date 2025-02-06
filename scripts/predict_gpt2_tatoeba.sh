@@ -8,7 +8,7 @@ fi
 export PYTHONUNBUFFERED=1
 python3 -m main.gpt2_tatoeba \
     --mode predict \
-    --model-path ../work/gpt2_0.001tatoeba \
+    --model-path ../work/gpt2_0.05tatoeba \
     --input-path ../example/input.txt \
     --output-path ../pred/gpt2_tatoeba_pred.txt \
     --k 3 >../log/predict_gpt2_tatoeba.log 2>&1

@@ -120,7 +120,11 @@ def gpt2_train_eval(
 
 
 def gpt2_inference(
-    model_path: str, input_path: str, output_path: str, k: int, verbose: bool = True
+    model_path: str,
+    input_path: str,
+    output_path: str,
+    k: int,
+    verbose: bool = True,
 ) -> None:
     """
     Generate predictions using the trained GPT-2 model.
@@ -159,6 +163,7 @@ def gpt2_inference(
         sentences = file.readlines()
     with open(output_path, "w") as file:
         for sentence in sentences:
+            sentence = sentence[:-1]  # Remove newline character
             predictions = gpt2_predict(
                 model,
                 sentence,
@@ -172,3 +177,5 @@ def gpt2_inference(
                 remove_unknown=True,
             )
             file.write("".join(char for char, _ in predictions) + "\n")
+            if verbose:
+                print(f"{sentence=}, {predictions=}")

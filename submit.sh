@@ -26,5 +26,8 @@ submit_model_dir=submit/$model_dir
 mkdir -p submit/work
 cp -r $model_dir $submit_model_dir
 
+# remove pycache
+find submit -type d -name "__pycache__" -exec rm -r {} +
+
 # make zip file
 zip -r submit.zip submit

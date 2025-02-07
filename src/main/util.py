@@ -1,7 +1,7 @@
 import os
 import json
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch import nn
 from transformers import AutoModelForCausalLM
 from argparse import ArgumentParser, Namespace

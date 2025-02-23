@@ -28,20 +28,21 @@ def parse_args() -> Namespace:
     """
 
     parser = ArgumentParser(
-        description="Train and evaluate GPT-2 on text8 dataset, or generate predictions."
+        description="Train and evaluate GPT-2 on text8 dataset, generate predictions, or search hyperparameters."
     )
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["train", "predict"],
+        choices=["train", "predict", "hyperparam"],
         required=True,
-        help="Mode: train or predict",
+        help="Mode: train, predict, or hyperparameter search",
     )
-    parser.add_argument("--k", type=int, required=True, help="k for top-k predictions")
+    parser.add_argument("--k", type=int, required=False, default=3, help="k for top-k predictions")
     parser.add_argument("--output-path", type=str, help="Path to save outputs")
 
-    # Train mode arguments
+    # Train / hyperparameter mode arguments
     parser.add_argument("--data-path", type=str, help="Path to training data")
+    parser.add_argument("--data-percentage", type=float, default=0.05, help="Percentage of dataset to use")
 
     # Predict mode arguments
     parser.add_argument("--model-path", type=str, help="Path to saved model")
@@ -55,6 +56,9 @@ def parse_args() -> Namespace:
     if args.mode == "train":
         if not args.data_path or not args.output_path:
             parser.error("Train mode requires --data-path and --output-path.")
+    elif args.mode == "hyperparam":
+        if not args.data_path or not args.output_path:
+            parser.error("Hyperparameter search mode requires --data-path and --output-path.")
     else:
         assert args.mode == "predict"
         if not args.model_path or not args.input_path or not args.output_path:
@@ -113,10 +117,11 @@ def gpt2_train_eval(
     # Evaluate the model
     if verbose:
         print("Evaluating model on validation set...")
-    evaluate_model(model, val_loader, criterion, gpt2_accuracy, device, k)
+    val_loss, val_acc, val_topk_acc = evaluate_model(model, val_loader, criterion, gpt2_accuracy, device, k)
     if verbose:
         print("Evaluating model on test set...")
-    evaluate_model(model, test_loader, criterion, gpt2_accuracy, device, k)
+    test_loss, test_acc, test_topk_acc = evaluate_model(model, test_loader, criterion, gpt2_accuracy, device, k)
+    return val_loss, val_acc, val_topk_acc, test_loss, test_acc, test_topk_acc
 
 
 def gpt2_inference(

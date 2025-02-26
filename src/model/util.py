@@ -138,7 +138,7 @@ def evaluate_model(
     return avg_loss, accuracy, topk_accuracy
 
 
-def preprocess_input(
+def vectorize_text(
     text: str,
     char_to_idx: Dict[str, int],
     device: torch.device,
@@ -161,6 +161,36 @@ def preprocess_input(
         The tensor of indices.
     """
 
+    text = preprocess_text(text, char_to_idx, seq_len, lowercase, remove_unknown)
+    return torch.tensor(
+        [char_to_idx[char] for char in text], dtype=torch.long, device=device
+    ).unsqueeze(0)
+
+
+def preprocess_text(
+    text: str,
+    char_to_idx: Dict[str, int],
+    seq_len: int = None,
+    lowercase: bool = False,
+    remove_unknown: bool = True,
+    suppress_error: bool = False,
+) -> torch.Tensor:
+    """
+    Preprocess the text.
+
+    Args:
+        text: The text to be processed.
+        char_to_idx: The character-to-index mapping.
+        seq_len: The length of the sequence. If None, the full sequence is used.
+        lowercase: Whether to convert the text to lowercase.
+        remove_unknown: Whether to remove unknown characters.
+        suppress_error: Whether to suppress the error when the text becomes empty
+            after preprocessing.
+
+    Return:
+        Preprocessed text.
+    """
+
     if lowercase:
         text = text.lower()
     if remove_unknown:
@@ -168,11 +198,7 @@ def preprocess_input(
     if seq_len is not None:
         text = text[-seq_len:]
 
-    if len(text) == 0:
+    if len(text) == 0 and not suppress_error:
         raise ValueError("[ERROR] Empty input prefix.")
 
-    return (
-        torch.tensor([char_to_idx[char] for char in text], dtype=torch.long)
-        .unsqueeze(0)
-        .to(device)
-    )
+    return text

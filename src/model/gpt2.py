@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from typing import Tuple, Dict, List, Optional
 
-from model.util import preprocess_input
+from model.util import vectorize_text, preprocess_text
 
 
 class GPT2CrossEntropyLoss(nn.Module):
@@ -108,7 +108,7 @@ def gpt2_predict(
     model.eval()
     with torch.no_grad():
         try:
-            input_idxs = preprocess_input(
+            input_idxs = vectorize_text(
                 prefix,
                 char_to_idx,
                 device,
@@ -139,6 +139,104 @@ def gpt2_predict(
             ]
             predictions = predictions[: padded_k - 1]
         return predictions
+
+
+def gpt2_batch_predict(
+    model: nn.Module,
+    prefixes: List[str],
+    char_to_idx: Dict[str, int],
+    idx_to_char: Dict[int, str],
+    k: int,
+    device: torch.device,
+    pad_token: Optional[str] = None,
+    seq_len: Optional[int] = None,
+    lowercase: bool = False,
+    remove_unknown: bool = True,
+    pred_batch_size: int = 128,
+) -> List[str]:
+    """
+    Generate predictions for multiple prefixes using the GPT-2 model.
+
+    Args:
+        model: The GPT-2 model.
+        prefixes: The prefixes to generate the predictions from.
+        char_to_idx: The character to index mapping.
+        idx_to_char: The index to character mapping.
+        k: k for top-k predictions.
+        device: The device to run the model on.
+        pad_token: The padding token. If None, no padding is used. The padding token
+            won't be included in the predictions.
+        seq_len: The length of the sequence. If the prefix is longer than the
+            sequence length, it is truncated. If None, the full sequence is used.
+        lowercase: Whether to convert the input to lowercase.
+        remove_unknown: Whether to remove unknown characters from the input.
+        pred_batch_size: The batch size for predictions.
+
+    Return:
+        A list of concatenated top-k predictions for each prefix.
+    """
+
+    prefixes = [
+        preprocess_text(
+            prefix,
+            char_to_idx,
+            seq_len,
+            lowercase,
+            remove_unknown,
+            suppress_error=True,
+        )
+        for prefix in prefixes
+    ]
+    len_to_prefixes: Dict[int, List[Tuple[str, int]]] = {}
+    for i, prefix in enumerate(prefixes):
+        prefix_len = len(prefix)
+        if prefix_len not in len_to_prefixes:
+            len_to_prefixes[prefix_len] = []
+        len_to_prefixes[prefix_len].append((prefix, i))
+
+    padded_k = k + 1 if pad_token is not None else k
+    pad_index = char_to_idx[pad_token] if pad_token is not None else -1
+    unknown_prediction = "?" * k
+    predictions = [unknown_prediction for _ in prefixes]
+    model.eval()
+    with torch.no_grad():
+        for prefix_len, prefixes_indices in len_to_prefixes.items():
+            if prefix_len == 0:
+                continue
+
+            num_prefixes = len(prefixes_indices)
+            num_batches = (num_prefixes + pred_batch_size - 1) // pred_batch_size
+            for batch_idx in range(num_batches):
+                start_idx = batch_idx * pred_batch_size
+                end_idx = min((batch_idx + 1) * pred_batch_size, num_prefixes)
+                batch_prefixes_indices = prefixes_indices[start_idx:end_idx]
+
+                vectorized_prefixes = torch.stack(
+                    [
+                        torch.tensor(
+                            [char_to_idx[char] for char in prefix],
+                            dtype=torch.long,
+                            device=device,
+                        )
+                        for prefix, _ in batch_prefixes_indices
+                    ]
+                )
+                outputs: CausalLMOutputWithCrossAttentions = model(vectorized_prefixes)
+                logits = outputs.logits
+                probs = torch.softmax(logits[:, -1], dim=-1)
+                top_k = torch.topk(probs, padded_k, dim=-1)
+                top_k_indices = top_k.indices.tolist()
+                unpadded_predictions = [
+                    "".join(idx_to_char[idx] for idx in indices if idx != pad_index)[:k]
+                    for indices in top_k_indices
+                ]
+
+                for (_, index), prediction in zip(
+                    batch_prefixes_indices, unpadded_predictions
+                ):
+                    predictions[index] = prediction
+
+    return predictions
 
 
 def load_gpt2_model(

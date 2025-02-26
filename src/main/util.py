@@ -13,7 +13,7 @@ from model.gpt2 import (
     GPT2CrossEntropyLoss,
     gpt2_accuracy,
     load_gpt2_model,
-    gpt2_predict,
+    gpt2_batch_predict,
 )
 from model.util import train_model, evaluate_model
 
@@ -233,23 +233,22 @@ def gpt2_inference(
     with open(input_path, "r") as file:
         sentences = file.readlines()
     with open(output_path, "w") as file:
-        for sentence in sentences:
-            sentence = sentence[:-1]  # Remove newline character
-            predictions = gpt2_predict(
-                model,
-                sentence,
-                char_to_idx,
-                idx_to_char,
-                k,
-                DEVICE,
-                pad_token=pad_token,
-                seq_len=SEQ_LEN,
-                lowercase=True,
-                remove_unknown=True,
-            )
-            file.write("".join(char for char, _ in predictions) + "\n")
-            if verbose:
-                print(f"{sentence=}, {predictions=}")
+        sentences = [
+            sentence[:-1] for sentence in sentences
+        ]  # Remove newline character
+        predictions = gpt2_batch_predict(
+            model,
+            sentences,
+            char_to_idx,
+            idx_to_char,
+            k,
+            DEVICE,
+            pad_token=pad_token,
+            seq_len=SEQ_LEN,
+            lowercase=True,
+            remove_unknown=True,
+        )
+        file.write("\n".join(predictions) + "\n")
 
 
 def hyperparam_combinations(

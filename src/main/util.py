@@ -1,11 +1,13 @@
 import os
 import json
+import pandas as pd
 import torch
+from dataclasses import dataclass, astuple
 from torch.utils.data import DataLoader
 from torch import nn
 from transformers import AutoModelForCausalLM
 from argparse import ArgumentParser, Namespace
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, Callable, List
 
 from model.gpt2 import (
     GPT2CrossEntropyLoss,
@@ -14,6 +16,34 @@ from model.gpt2 import (
     gpt2_predict,
 )
 from model.util import train_model, evaluate_model
+
+
+@dataclass
+class HyperparameterConfig:
+    """
+    Configuration for hyperparameters.
+
+    Attributes:
+        seq_len: The sequence length.
+        batch_size: The batch size.
+        lr: The learning rate.
+        epochs: The number of epochs.
+    """
+
+    seq_len: int
+    batch_size: int
+    lr: float
+    epochs: int
+
+    @staticmethod
+    def hyperparam_names() -> List[str]:
+        """
+        Get the names of the hyperparameters.
+
+        Return:
+            The list of hyperparameter names.
+        """
+        return ["seq_len", "batch_size", "lr", "epochs"]
 
 
 def parse_args() -> Namespace:
@@ -28,7 +58,8 @@ def parse_args() -> Namespace:
     """
 
     parser = ArgumentParser(
-        description="Train and evaluate GPT-2 on text8 dataset, generate predictions, or search hyperparameters."
+        description="Train and evaluate GPT-2 on text8 dataset, "
+        "generate predictions, or search hyperparameters."
     )
     parser.add_argument(
         "--mode",
@@ -37,12 +68,19 @@ def parse_args() -> Namespace:
         required=True,
         help="Mode: train, predict, or hyperparameter search",
     )
-    parser.add_argument("--k", type=int, required=False, default=3, help="k for top-k predictions")
+    parser.add_argument(
+        "--k", type=int, required=False, default=3, help="k for top-k predictions"
+    )
     parser.add_argument("--output-path", type=str, help="Path to save outputs")
 
     # Train / hyperparameter mode arguments
     parser.add_argument("--data-path", type=str, help="Path to training data")
-    parser.add_argument("--data-percentage", type=float, default=0.05, help="Percentage of dataset to use")
+    parser.add_argument(
+        "--data-percentage",
+        type=float,
+        default=0.05,
+        help="Percentage of dataset to use",
+    )
 
     # Predict mode arguments
     parser.add_argument("--model-path", type=str, help="Path to saved model")
@@ -58,7 +96,9 @@ def parse_args() -> Namespace:
             parser.error("Train mode requires --data-path and --output-path.")
     elif args.mode == "hyperparam":
         if not args.data_path or not args.output_path:
-            parser.error("Hyperparameter search mode requires --data-path and --output-path.")
+            parser.error(
+                "Hyperparameter search mode requires --data-path and --output-path."
+            )
     else:
         assert args.mode == "predict"
         if not args.model_path or not args.input_path or not args.output_path:
@@ -83,7 +123,29 @@ def gpt2_train_eval(
     device: torch.device,
     pad_token: Optional[str] = None,
     verbose: bool = True,
-):
+) -> Tuple[float, float, float, float, float, float]:
+    """
+    Train and evaluate the GPT-2 model on the given dataset.
+
+    Args:
+        vocab_size: The size of the vocabulary.
+        train_loader: The training data loader.
+        val_loader: The validation data loader.
+        test_loader: The test data loader.
+        epochs: The number of epochs to train the model.
+        learning_rate: The learning rate for training.
+        output_path: The path to save the trained model.
+        model_name: The name of the model.
+        char_to_idx: The mapping from characters to indices.
+        k: k for top-k predictions.
+        device: The device to use for training.
+        pad_token: The padding token.
+        verbose: Whether to print outputs.
+
+    Returns:
+        The validation and test losses, accuracies, and top-k accuracies.
+    """
+
     model: nn.Module = AutoModelForCausalLM.from_pretrained("gpt2")
     model.resize_token_embeddings(vocab_size)
     model.to(device)
@@ -117,10 +179,14 @@ def gpt2_train_eval(
     # Evaluate the model
     if verbose:
         print("Evaluating model on validation set...")
-    val_loss, val_acc, val_topk_acc = evaluate_model(model, val_loader, criterion, gpt2_accuracy, device, k)
+    val_loss, val_acc, val_topk_acc = evaluate_model(
+        model, val_loader, criterion, gpt2_accuracy, device, k
+    )
     if verbose:
         print("Evaluating model on test set...")
-    test_loss, test_acc, test_topk_acc = evaluate_model(model, test_loader, criterion, gpt2_accuracy, device, k)
+    test_loss, test_acc, test_topk_acc = evaluate_model(
+        model, test_loader, criterion, gpt2_accuracy, device, k
+    )
     return val_loss, val_acc, val_topk_acc, test_loss, test_acc, test_topk_acc
 
 
@@ -184,3 +250,88 @@ def gpt2_inference(
             file.write("".join(char for char, _ in predictions) + "\n")
             if verbose:
                 print(f"{sentence=}, {predictions=}")
+
+
+def hyperparam_combinations(
+    seq_lens: List[int],
+    batch_sizes: List[int],
+    lrs: List[float],
+    epochs: List[int],
+) -> List[HyperparameterConfig]:
+    """
+    Generate all combinations of hyperparameters.
+
+    Args:
+        seq_lens: The sequence lengths.
+        batch_sizes: The batch sizes.
+        lrs: The learning rates.
+        epochs: The numbers of epochs.
+
+    Returns:
+        The list of hyperparameter configurations.
+    """
+
+    return [
+        HyperparameterConfig(seq_len, batch_size, lr, epoch)
+        for seq_len in seq_lens
+        for batch_size in batch_sizes
+        for lr in lrs
+        for epoch in epochs
+    ]
+
+
+def gpt2_hyperparam_search(
+    train_val_fn: Callable[
+        [str, float, str, int, HyperparameterConfig], Tuple[float, float, float]
+    ],
+    search_space: List[HyperparameterConfig],
+    dataset_name: str,
+    data_path: str,
+    data_percentage: float,
+    output_path: str,
+    k: int,
+    verbose: bool = True,
+) -> None:
+    """
+    Search for good hyperparameters for the GPT-2 model on the given dataset.
+
+    Args:
+        train_val_fn: The function to train the model and evaluate it on the
+            validation set. It takes the data path, data percentage, output
+            path, k, and hyperparameters and returns the validation loss,
+            accuracy, and top-k accuracy.
+        search_space: The combinations of hyperparameters to search.
+        dataset_name: The name of the dataset.
+        data_path: The path to the dataset.
+        output_path: The path to save the model and mappings.
+        k: k for top-k accuracy.
+        verbose: Whether to print outputs.
+        data_percentage: The percentage of the dataset to use.
+        verbose: Whether to print outputs.
+    """
+
+    search_results = []
+    for config in search_space:
+        val_loss, val_acc, val_topk_acc = train_val_fn(
+            data_path, data_percentage, output_path, k, config
+        )
+        search_results.append((*astuple(config), val_loss, val_acc, val_topk_acc))
+        if verbose:
+            print(
+                f"Hyperparameters: {config}, "
+                f"Validation loss: {val_loss}, "
+                f"Validation accuracy: {val_acc}, "
+                f"Validation top-{k} accuracy: {val_topk_acc}"
+            )
+
+    COLUMN_NAMES = [
+        *HyperparameterConfig.hyperparam_names(),
+        "val_avg_loss",
+        "val_acc",
+        "val_topk_acc",
+    ]
+    df = pd.DataFrame(data=search_results, columns=COLUMN_NAMES)
+    csv_path = os.path.join(
+        output_path, f"{data_percentage}{dataset_name}_hyperparam_search.csv"
+    )
+    df.to_csv(csv_path, index=False)

@@ -13,12 +13,31 @@ SEED = 42
 random.seed(SEED)
 
 
-def load_tatoeba(path: str, verbose: bool = False) -> pd.DataFrame:
+def read_tatoeba_csv(path: str) -> pd.DataFrame:
+    """
+    Read the tatoeba dataset from a csv file.
+
+    Args:
+        path: The path to the csv file.
+
+    Return:
+        The tatoeba dataset as a data frame.
+    """
+
+    return pd.read_csv(path, sep="\t", header=None, names=["id", "lang", "sentence"])
+
+
+def load_tatoeba(
+    path: str,
+    percentage: float = 1,
+    verbose: bool = False,
+) -> pd.DataFrame:
     """
     Download the tatoeba dataset if it doesn't exist.
 
     Args:
         path: The directory where the dataset will be downloaded.
+        percentage: The percentage of the dataset to be used.
         verbose: Whether to print a summary of the loaded dataset.
 
     Return:
@@ -42,8 +61,19 @@ def load_tatoeba(path: str, verbose: bool = False) -> pd.DataFrame:
             tar.extractall(extract_path)
 
     csv_name = "sentences.csv"
-    csv_path = os.path.join(extract_path, csv_name)
-    df = pd.read_csv(csv_path, sep="\t", header=None, names=["id", "lang", "sentence"])
+    if percentage == 1:
+        prefixed_csv_name = csv_name
+    else:
+        prefixed_csv_name = f"{percentage}{csv_name}"
+    prefixed_csv_path = os.path.join(extract_path, prefixed_csv_name)
+
+    if not os.path.exists(prefixed_csv_path):
+        csv_path = os.path.join(extract_path, csv_name)
+        df = read_tatoeba_csv(csv_path)
+        df = df.sample(frac=percentage)
+        df.to_csv(prefixed_csv_path, sep="\t", index=False, header=False)
+    else:
+        df = read_tatoeba_csv(prefixed_csv_path)
 
     if verbose:
         print(f"Number of sentences in the tatoeba dataset: {len(df)}")
@@ -102,7 +132,9 @@ def get_tatoeba_dataloaders(
     val_percentage: float,
     test_percentage: float,
     tatoeba_percentage: float = 1,
-) -> Tuple[Dict[str, int], Dict[int, str], Optional[str], DataLoader, DataLoader, DataLoader]:
+) -> Tuple[
+    Dict[str, int], Dict[int, str], Optional[str], DataLoader, DataLoader, DataLoader
+]:
     """
     Get the data loaders for the tatoeba dataset.
 
@@ -120,10 +152,10 @@ def get_tatoeba_dataloaders(
         and training, validation, and test data loaders.
     """
 
-    df = load_tatoeba(path)
+    df = load_tatoeba(path, percentage=tatoeba_percentage)
     sentences = df["sentence"].tolist()
     inputs, targets, char_to_idx, idx_to_char, pad_token = encode_tatoeba(
-        sentences, seq_len, tatoeba_percentage
+        sentences, seq_len
     )
     return (
         char_to_idx,

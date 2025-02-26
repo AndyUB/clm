@@ -1,13 +1,29 @@
 import torch
 from argparse import Namespace
+from typing import List, Tuple
+
 from data.tatoeba import get_tatoeba_dataloaders
-from main.util import parse_args, gpt2_train_eval, gpt2_inference
-import pandas as pd
+from main.util import (
+    parse_args,
+    gpt2_train_eval,
+    gpt2_inference,
+    gpt2_hyperparam_search,
+    HyperparameterConfig,
+    hyperparam_combinations,
+)
+
 
 def train_gpt2_on_tatoeba(
-    data_path: str, output_path: str, k: int, seq_len = 50, batch_size = 64, epochs = 5, lr = 1e-4, 
-    data_percentage = 0.05, verbose: bool = True
-):
+    data_path: str,
+    output_path: str,
+    k: int,
+    seq_len: int = 50,
+    batch_size: int = 64,
+    epochs: int = 5,
+    lr: float = 1e-4,
+    data_percentage: float = 0.05,
+    verbose: bool = True,
+) -> Tuple[float, float, float, float, float, float]:
     """
     Train and evaluate GPT-2 on the tatoeba dataset.
 
@@ -15,12 +31,15 @@ def train_gpt2_on_tatoeba(
         data_path: The path to the tatoeba dataset.
         output_path: The path to save the model and mappings.
         k: k for top-k accuracy.
-        seq_len: number of tokens of context the transformer uses
-        batch_size: number of training examples to process at a time before loss and backprop
-        epochs: number of times to pass all data through
-        lr: learning rate of training (multiply by gradient to modify weights)
-        data_percentage: percentage of tatoeba dataset to use
+        seq_len: Sequence length.
+        batch_size: Batch size.
+        epochs: Number of epochs.
+        lr: Learning rate.
+        data_percentage: Percentage of tatoeba dataset to use.
         verbose: Whether to print outputs.
+
+    Returns:
+        The validation and test losses, accuracies, and top-k accuracies.
     """
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,14 +51,16 @@ def train_gpt2_on_tatoeba(
     # Load the data
     if verbose:
         print("Loading data...")
-    char_to_idx, _, pad_token, train_loader, val_loader, test_loader = get_tatoeba_dataloaders(
-        data_path,
-        seq_len,
-        batch_size,
-        train_percentage,
-        val_percentage,
-        test_percentage,
-        data_percentage,
+    char_to_idx, _, pad_token, train_loader, val_loader, test_loader = (
+        get_tatoeba_dataloaders(
+            data_path,
+            seq_len,
+            batch_size,
+            train_percentage,
+            val_percentage,
+            test_percentage,
+            data_percentage,
+        )
     )
     vocab_size = len(char_to_idx)
     if verbose:
@@ -61,46 +82,94 @@ def train_gpt2_on_tatoeba(
         verbose=verbose,
     )
 
-def hyperparam_search(data_path: str, output_path: str, k: int, data_percentage = 0.05, verbose = True):
+
+def tune_gpt2_on_tatoeba(
+    data_path: str,
+    data_percentage: float,
+    output_path: str,
+    k: int,
+    hyperparameters: HyperparameterConfig,
+) -> Tuple[float, float, float]:
     """
-    Train and evaluate GPT-2 on the tatoeba dataset with many different hyperparameters.
-    Log metadata about hyperparameters and save to CSV.
+    Tune GPT-2 on the tatoeba dataset.
 
     Args:
         data_path: The path to the tatoeba dataset.
+        data_percentage: The percentage of the dataset to be used.
         output_path: The path to save the model and mappings.
         k: k for top-k accuracy.
-        verbose: Whether to print outputs.
+        hyperparameters: The hyperparameters to use.
+
+    Returns:
+        The validation loss, accuracy, and top-k accuracy.
     """
-    COLUMN_NAMES = ['dataset', 'data_percentage', 'seq_len', 'batch_size', 'lr', 'epochs',
-                    'val_avg_loss', 'val_acc', 'val_topk_acc', 'test_avg_loss', 'test_acc', 'test_topk_acc']
-    df = pd.DataFrame(columns=COLUMN_NAMES)
-    for seq_len in range(50, 110, 10):
-        for batch_size in [2 ** i for i in range(6, 13)]:
-            for lr in [10 ** j for j in range(-6, 0)]:
-                for epochs in range(5, 25, 5):
-                    if verbose:
-                        print(f"Training GPT2 on {data_percentage*100}% Tatoeba: {seq_len} seq, {batch_size} batch, {lr} learning rate, {epochs} epochs")
-                    val_avg_loss, val_acc, val_topk_acc, test_avg_loss, test_acc, test_topk_acc = train_gpt2_on_tatoeba(data_path, output_path, k, seq_len=seq_len, batch_size=batch_size, lr=lr, epochs=epochs, data_percentage=data_percentage)
-                    df = pd.concat(df, pd.Series(['tatoeba', data_percentage, seq_len, batch_size, lr, epochs, 
-                                                  val_avg_loss, val_acc, val_topk_acc, test_avg_loss, test_acc, test_topk_acc]))
-    df.to_csv(output_path + '/gpt2_tatoeba_hparamsearch.csv', index=False)
+
+    val_loss, val_acc, val_topk_acc, _, _, _ = train_gpt2_on_tatoeba(
+        data_path,
+        output_path,
+        k,
+        seq_len=hyperparameters.seq_len,
+        batch_size=hyperparameters.batch_size,
+        epochs=hyperparameters.epochs,
+        lr=hyperparameters.lr,
+        data_percentage=data_percentage,
+    )
+    return val_loss, val_acc, val_topk_acc
+
+
+def search_space_for_gpt2_on_tatoeba() -> List[HyperparameterConfig]:
+    """
+    Get the hyperparameter search space for training GPT-2 on the tatoeba dataset.
+
+    Returns:
+        The hyperparameter search space.
+    """
+
+    # seq_lens = [50, 60, 70, 80, 90, 100]
+    # seq_lens = [50, 100, 150, 200]
+    seq_lens = [60, 80]
+    # batch_sizes = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+    # batch_sizes = [4, 16, 64, 256]
+    batch_sizes = [4, 16, 64]
+    # lrs = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+    # lrs = [1e-6, 1e-4, 1e-2]
+    lrs = [1e-6, 1e-4]
+    # epochs = [5, 10, 15, 20]
+    # epochs = [5, 15, 25]
+    epochs = [10, 20]
+    return hyperparam_combinations(
+        seq_lens=seq_lens, batch_sizes=batch_sizes, lrs=lrs, epochs=epochs
+    )
 
 
 def main(args: Namespace):
     """
-    Train and evaluate GPT-2 on tatoeba dataset, or generate predictions.
+    Train and evaluate GPT-2 on tatoeba dataset, generate predictions,
+    or search for good hyperparameters.
 
     Args:
         args: Arguments parsed from the command line.
     """
 
     if args.mode == "train":
-        train_gpt2_on_tatoeba(args.data_path, args.output_path, args.k, data_percentage=args.data_percentage)
+        train_gpt2_on_tatoeba(
+            args.data_path,
+            args.output_path,
+            args.k,
+            data_percentage=args.data_percentage,
+        )
     elif args.mode == "predict":
         gpt2_inference(args.model_path, args.input_path, args.output_path, args.k)
     elif args.mode == "hyperparam":
-        hyperparam_search(args.data_path, args.output_path, args.k, data_percentage=args.data_percentage)
+        gpt2_hyperparam_search(
+            train_val_fn=tune_gpt2_on_tatoeba,
+            search_space=search_space_for_gpt2_on_tatoeba(),
+            dataset_name="tatoeba",
+            data_path=args.data_path,
+            data_percentage=args.data_percentage,
+            output_path=args.output_path,
+            k=args.k,
+        )
     else:
         raise NotImplementedError(f"Mode {args.mode} is not implemented.")
 

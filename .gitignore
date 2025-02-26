@@ -8,3 +8,4 @@ data/
 *.pth
 log/
 work/*eps/*
+**/test_batch_prediction/*

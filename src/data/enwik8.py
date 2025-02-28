@@ -24,18 +24,8 @@ def load_enwik8(path: str, verbose: bool = False) -> str:
     url = "http://mattmahoney.net/dc/enwik8.zip"
     zip_name = "enwik8"
     text_path = os.path.join(path, zip_name)
-
     download_unzip(url, path, zip_name)
-
-    # Read the text file
-    with open(text_path, "r", encoding="utf-8") as file:
-        text = file.read()
-    if verbose:
-        print(f"Length of enwik8 dataset: {len(text)}")
-        print(f"Sample of enwik8 dataset: {text[:1000]}")
-        freq = sorted(Counter(text).items(), key=lambda item: item[1], reverse=True)
-        print(f"Frequency of characters in enwik8 dataset: {freq}")
-    return text
+    return preprocess_enwik8(path, text_path, verbose)
 
 
 def get_enwik8_unique_chars(text: str) -> str:
@@ -52,7 +42,7 @@ def get_enwik8_unique_chars(text: str) -> str:
     return sorted(set(text))
 
 
-def preprocess_enwik8(text: str, verbose: bool = True) -> str:
+def preprocess_enwik8(data_dir: str, text_path: str, verbose: bool = False) -> str:
     """
     Preprocess the enwik8 text.
     1. Remove HTML tags.
@@ -61,22 +51,44 @@ def preprocess_enwik8(text: str, verbose: bool = True) -> str:
     4. Replace multiple spaces with a single space.
 
     Args:
-        text: The enwik8 text.
+        data_dir: The directory where the dataset resides.
+        text_path: The path to the enwik8 text.
         verbose: Whether to print a summary of the preprocessed text.
 
     Return:
         The preprocessed enwik8 text.
     """
-    # Remove HTML tags
-    text = re.sub(r"<.*?>", " ", text)
-    # Convert to Unicode (preserving all characters in various languages)
-    text = unicodedata.normalize("NFKC", text)  # Normalize to Unicode Compatibility
-    # Keep only printable characters
-    text = "".join(
-        char if unicodedata.category(char) != "Cc" else " " for char in text
-    )  # Replace control characters with spaces
-    text = re.sub(r"\s+", " ", text)  # Replace multiple spaces with a single space
-    text = text.strip()
+
+    preprocessed_file = "preprocessed_enwik8.txt"
+    preprocessed_path = os.path.join(data_dir, preprocessed_file)
+
+    if os.path.exists(preprocessed_path):
+        with open(preprocessed_path, "r") as file:
+            text = file.read()
+    else:
+        # Read the text file
+        with open(text_path, "r", encoding="utf-8") as file:
+            text = file.read()
+        if verbose:
+            print(f"Length of enwik8 dataset: {len(text)}")
+            print(f"Sample of enwik8 dataset: {text[:1000]}")
+            freq = sorted(Counter(text).items(), key=lambda item: item[1], reverse=True)
+            print(f"Frequency of characters in enwik8 dataset: {freq}")
+
+        # Remove HTML tags
+        text = re.sub(r"<.*?>", " ", text)
+        # Convert to Unicode (preserving all characters in various languages)
+        text = unicodedata.normalize("NFKC", text)  # Normalize to Unicode Compatibility
+        # Keep only printable characters
+        text = "".join(
+            char if unicodedata.category(char) != "Cc" else " " for char in text
+        )  # Replace control characters with spaces
+        text = re.sub(r"\s+", " ", text)  # Replace multiple spaces with a single space
+        text = text.strip()
+
+        with open(preprocessed_path, "w") as file:
+            file.write(text)
+
     if verbose:
         print(f"Length of preprocessed enwik8 dataset: {len(text)}")
         print(f"Sample of preprocessed enwik8 dataset: {text[:10000]}")
@@ -101,8 +113,8 @@ def encode_enwik8(
         index to character mapping, padding token.
     """
 
-    unique_chars = get_enwik8_unique_chars(text)
     text = text[: int(len(text) * percentage)]
+    unique_chars = get_enwik8_unique_chars(text)
     return encode_text(text, seq_len, unique_chars, pad_token=None)
 
 
@@ -135,7 +147,6 @@ def get_enwik8_dataloaders(
     """
 
     text = load_enwik8(path)
-    text = preprocess_enwik8(text)
     inputs, targets, char_to_idx, idx_to_char, pad_token = encode_enwik8(
         text, seq_len, enwik8_percentage
     )

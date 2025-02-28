@@ -1,9 +1,16 @@
 import torch
-import pandas as pd
 from argparse import Namespace
+from typing import Tuple, List
 
 from data.enwik8 import get_enwik8_dataloaders
-from main.util import parse_args, gpt2_train_eval, gpt2_inference
+from main.util import (
+    parse_args,
+    gpt2_train_eval,
+    gpt2_inference,
+    gpt2_hyperparam_search,
+    HyperparameterConfig,
+    hyperparam_combinations,
+)
 
 
 def train_gpt2_on_enwik8(
@@ -73,79 +80,59 @@ def train_gpt2_on_enwik8(
     )
 
 
-def hyperparam_search(
-    data_path: str, output_path: str, k: int, data_percentage=0.1, verbose=True
-):
+def tune_gpt2_on_enwik8(
+    data_path: str,
+    data_percentage: float,
+    output_path: str,
+    k: int,
+    hyperparameters: HyperparameterConfig,
+) -> Tuple[float, float, float]:
     """
-    Train and evaluate GPT-2 on the enwik8 dataset with many different hyperparameters.
-    Log metadata about hyperparameters and save to CSV.
+    Tune GPT-2 on the enwik8 dataset.
 
     Args:
         data_path: The path to the enwik8 dataset.
+        data_percentage: The percentage of the dataset to use.
         output_path: The path to save the model and mappings.
         k: k for top-k accuracy.
-        verbose: Whether to print outputs.
+        hyperparameters: The hyperparameters to tune.
+
+    Returns:
+        The average loss, accuracy, and top-k accuracy on the validation set.
     """
-    COLUMN_NAMES = [
-        "dataset",
-        "data_percentage",
-        "seq_len",
-        "batch_size",
-        "lr",
-        "epochs",
-        "val_avg_loss",
-        "val_acc",
-        "val_topk_acc",
-        "test_avg_loss",
-        "test_acc",
-        "test_topk_acc",
-    ]
-    df = pd.DataFrame(columns=COLUMN_NAMES)
-    for seq_len in range(50, 110, 10):
-        for batch_size in [2**i for i in range(6, 13)]:
-            for lr in [10**j for j in range(-6, 0)]:
-                for epochs in range(5, 25, 5):
-                    if verbose:
-                        print(
-                            f"Training GPT2 on {data_percentage*100}% Enwik8: {seq_len} seq, {batch_size} batch, {lr} learning rate, {epochs} epochs"
-                        )
-                    (
-                        val_avg_loss,
-                        val_acc,
-                        val_topk_acc,
-                        test_avg_loss,
-                        test_acc,
-                        test_topk_acc,
-                    ) = train_gpt2_on_enwik8(
-                        data_path,
-                        output_path,
-                        k,
-                        seq_len=seq_len,
-                        batch_size=batch_size,
-                        lr=lr,
-                        epochs=epochs,
-                        data_percentage=data_percentage,
-                    )
-                    df = pd.concat(
-                        df,
-                        pd.Series(
-                            [
-                                "enwik8",
-                                data_percentage,
-                                seq_len,
-                                batch_size,
-                                lr,
-                                epochs,
-                                val_avg_loss,
-                                val_acc,
-                                val_topk_acc,
-                                test_avg_loss,
-                                test_acc,
-                                test_topk_acc,
-                            ]
-                        ),
-                    )
-    df.to_csv(output_path + "/gpt2_enwik8_hparamsearch.csv", index=False)
+
+    val_loss, val_acc, val_topk_acc, _, _, _ = train_gpt2_on_enwik8(
+        data_path,
+        output_path,
+        k,
+        seq_len=hyperparameters.seq_len,
+        batch_size=hyperparameters.batch_size,
+        epochs=hyperparameters.epochs,
+        lr=hyperparameters.lr,
+        data_percentage=data_percentage,
+    )
+    return val_loss, val_acc, val_topk_acc
+
+
+def search_space_for_gpt2_on_enwik8() -> List[HyperparameterConfig]:
+    """
+    Get the hyperparameter search space for GPT-2 on the enwik8 dataset.
+
+    Returns:
+        The hyperparameter search space.
+    """
+
+    # seq_lens = [50, 60, 70, 80, 90, 100]
+    seq_lens = [50, 100]
+    # batch_sizes = [4, 8, 16, 32, 64, 128, 256]
+    batch_sizes = [4, 16]
+    # lrs = [1e-5, 1e-4, 1e-3, 1e-2]
+    lrs = [1e-4, 1e-2]
+    # epochs = [5, 10, 15, 20]
+    epochs = [10, 20]
+    return hyperparam_combinations(
+        seq_lens=seq_lens, batch_sizes=batch_sizes, lrs=lrs, epochs=epochs
+    )
 
 
 def main(args: Namespace):
@@ -166,11 +153,14 @@ def main(args: Namespace):
     elif args.mode == "predict":
         gpt2_inference(args.model_path, args.input_path, args.output_path, args.k)
     elif args.mode == "hyperparam":
-        hyperparam_search(
-            args.data_path,
-            args.output_path,
-            args.k,
+        gpt2_hyperparam_search(
+            train_val_fn=tune_gpt2_on_enwik8,
+            search_space=search_space_for_gpt2_on_enwik8(),
+            dataset_name="enwik8",
+            data_path=args.data_path,
             data_percentage=args.data_percentage,
+            output_path=args.output_path,
+            k=args.k,
         )
     else:
         raise NotImplementedError(f"Mode {args.mode} is not implemented.")

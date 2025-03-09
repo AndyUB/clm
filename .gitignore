@@ -9,3 +9,4 @@ data/
 log/
 work/*eps/*
 **/test_batch_prediction/*
+*.pt

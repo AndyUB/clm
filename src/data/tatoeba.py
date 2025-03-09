@@ -111,7 +111,6 @@ def encode_tatoeba(
         sentences: The tatoeba sentences.
         seq_len: The length of each sequence.
         percentage: The percentage of the text to be used.
-        seed: The random seed.
 
     Return:
         Encoded inputs, targets, character to index mapping,

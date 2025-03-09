@@ -289,6 +289,7 @@ def distributed_train_model(
             checkpoint_interval is not None
             and rank == 0
             and (epoch + 1) % checkpoint_interval == 0
+            and epoch != num_epochs - 1
         ):
             save_checkpoint(
                 model,
@@ -309,29 +310,98 @@ def distributed_train_model(
 
         if eval_result_dir is not None:
             os.makedirs(eval_result_dir, exist_ok=True)
-            figure_path = os.path.join(eval_result_dir, f"{num_epochs}epochs.png")
+            losses_figure_path = os.path.join(
+                eval_result_dir, f"loss-{num_epochs}epochs.png"
+            )
+            accs_figure_path = os.path.join(
+                eval_result_dir, f"accuracy-{num_epochs}epochs.png"
+            )
             csv_path = os.path.join(eval_result_dir, f"{num_epochs}epochs.csv")
 
+            actual_epochs = list(range(start_epoch + 1, num_epochs + 1))
             plt.figure()
-            plt.plot(train_losses, label="Train Loss")
-            plt.plot(val_losses, label="Validation Loss")
-            plt.plot(val_accuracies, label="Validation Accuracy")
-            plt.plot(val_topk_accuracies, label=f"Validation Top-{k} Accuracy")
+            plt.plot(actual_epochs, train_losses, marker="o", label="Train Loss")
+            plt.plot(actual_epochs, val_losses, marker="s", label="Validation Loss")
+            for i in range(len(actual_epochs)):
+                plt.annotate(
+                    f"{train_losses[i]:.2f}",
+                    (actual_epochs[i], train_losses[i]),
+                    textcoords="offset points",
+                    xytext=(0, -12),
+                    ha='center',
+                    fontsize=8,
+                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                )
+                plt.annotate(
+                    f"{val_losses[i]:.2f}",  # Text for val_topk_accuracies
+                    (actual_epochs[i], val_losses[i]),  # Position at the data point
+                    textcoords="offset points",
+                    xytext=(0, 8),  # Offset text slightly below the point
+                    ha='center',
+                    fontsize=8,
+                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                )
             plt.xlabel("Epoch")
-            plt.ylabel("Metric")
+            plt.ylabel("Loss")
             plt.legend()
-            plt.title(f"Evaluation metrics over {num_epochs} epochs")
-            plt.savefig(figure_path)
+            plt.title(
+                f"Losses over {num_epochs} epochs "
+                f"(resumed from epoch {start_epoch})"
+            )
+            plt.savefig(losses_figure_path)
+            plt.close()
+
+            plt.figure()
+            plt.plot(
+                actual_epochs, val_accuracies, marker="o", label="Validation Accuracy"
+            )
+            plt.plot(
+                actual_epochs,
+                val_topk_accuracies,
+                marker="s",
+                label=f"Validation Top-{k} Accuracy",
+            )
+            for i in range(len(actual_epochs)):
+                plt.annotate(
+                    f"{val_accuracies[i]:.2f}",
+                    (actual_epochs[i], val_accuracies[i]),
+                    textcoords="offset points",
+                    xytext=(0, -12),
+                    ha='center',
+                    fontsize=8,
+                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                )
+                plt.annotate(
+                    f"{val_topk_accuracies[i]:.2f}",  # Text for val_topk_accuracies
+                    (actual_epochs[i], val_topk_accuracies[i]),  # Position at the data point
+                    textcoords="offset points",
+                    xytext=(0, 8),  # Offset text slightly below the point
+                    ha='center',
+                    fontsize=8,
+                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                )
+            plt.xlabel("Epoch")
+            plt.ylabel("Accuracy")
+            plt.legend()
+            plt.title(
+                f"Accuracies over {num_epochs} epochs "
+                f"(resumed from epoch {start_epoch})"
+            )
+            plt.savefig(accs_figure_path)
             plt.close()
             if verbose:
-                print(f"Saved evaluation metrics plot at: {figure_path}")
+                print(
+                    "Saved evaluation metrics plot at: "
+                    f"{losses_figure_path} and {accs_figure_path}"
+                )
 
+            actual_epochs_trained = num_epochs - start_epoch
             df = pd.DataFrame(
                 {
-                    "sequence_length": [sequence_length] * num_epochs,
-                    "batch_size": [batch_size] * num_epochs,
-                    "learning_rate": [learning_rate] * num_epochs,
-                    "epoch": list(range(1, num_epochs + 1)),
+                    "sequence_length": [sequence_length] * actual_epochs_trained,
+                    "batch_size": [batch_size] * actual_epochs_trained,
+                    "learning_rate": [learning_rate] * actual_epochs_trained,
+                    "epoch": actual_epochs,
                     "train_loss": train_losses,
                     "val_loss": val_losses,
                     "val_accuracy": val_accuracies,

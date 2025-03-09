@@ -328,8 +328,10 @@ def get_distributed_tatoeba_datasets(
     if train_pct + val_pct + test_pct != 1:
         raise ValueError("The sum of the split ratios must be 1.")
 
+    data_pct_dir = os.path.join(data_dir, str(data_percentage))
+    os.makedirs(data_pct_dir, exist_ok=True)
     train_val_test_dir = os.path.join(
-        data_dir, f"{train_pct}train_{val_pct}val_{test_pct}test"
+        data_pct_dir, f"{train_pct}train_{val_pct}val_{test_pct}test"
     )
     train_path = os.path.join(train_val_test_dir, "train.csv")
     val_path = os.path.join(train_val_test_dir, "val.csv")

@@ -12,12 +12,25 @@ if __name__ == "__main__":
     args: Namespace = parser.parse_args()
     df: pd.DataFrame = load_tatoeba(args.data_dir)
     sentences: List[str] = df["sentence"].tolist()
+    character_to_count = dict()
+    for sentence in sentences:
+        for character in sentence:
+            character_to_count[character] = character_to_count.get(character, 0) + 1
+    print(f"Number of unique characters: {len(character_to_count)}")
+    character_to_count = [(character, count) for character, count in character_to_count.items()]
+    character_to_count = sorted(character_to_count, key=lambda x: x[1], reverse=True)
+    print(f"Most common characters:")
+    for character, count in character_to_count:
+        print(f"Character: {character}, Count: {count}")
+    print()
     print(f"Number of sentences: {len(sentences)}")
     length_to_count = dict()
     for sentence in sentences:
         length = len(sentence)
         length_to_count[length] = length_to_count.get(length, 0) + 1
     length_to_count = [(length, count) for length, count in length_to_count.items()]
+    num_characters = sum(length * count for length, count in length_to_count)
+    print(f"Number of characters: {num_characters}")
     lengths = []
     counts = []
     for length, count in sorted(length_to_count, key=lambda x: x[0], reverse=False):

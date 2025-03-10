@@ -158,7 +158,7 @@ def distributed_tune_gpt2_on_tatoeba(
         verbose: Whether to log verbose information.
     """
 
-    max_mini_batch_size = 16
+    max_mini_batch_size = 128
     train_val_test_split = [0.8, 0.2, 0]
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(eval_result_dir, exist_ok=True)

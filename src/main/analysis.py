@@ -24,6 +24,7 @@ if __name__ == "__main__":
         print(f"Character: {character}, Count: {count}")
     print()
     print(f"Number of sentences: {len(sentences)}")
+    print(f"Number of unique sentences: {len(set(sentences))}")
     length_to_count = dict()
     for sentence in sentences:
         length = len(sentence)

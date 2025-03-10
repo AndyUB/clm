@@ -81,6 +81,7 @@ def distributed_train_gpt2_on_tatoeba(
     report_interval: int = 10,
     eval_result_dir: Optional[str] = None,
     verbose: bool = True,
+    grad_accumulation_interval: int = 1,
 ) -> None:
     """
     Train GPT-2 on the tatoeba dataset using multiple GPUs.
@@ -100,6 +101,8 @@ def distributed_train_gpt2_on_tatoeba(
         report_interval: Number of batches between reports.
         eval_result_dir: The directory to save the evaluation results.
         verbose: Whether to log verbose information.
+        grad_accumulation_interval: The number of mini-batches to accumulate
+            gradients over.
     """
 
     mp.spawn(
@@ -124,6 +127,7 @@ def distributed_train_gpt2_on_tatoeba(
             report_interval,
             eval_result_dir,
             verbose,
+            grad_accumulation_interval,
         ),
         nprocs=world_size,
         join=True,
@@ -154,17 +158,30 @@ def distributed_tune_gpt2_on_tatoeba(
         verbose: Whether to log verbose information.
     """
 
+    max_mini_batch_size = 16
     train_val_test_split = [0.8, 0.2, 0]
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(eval_result_dir, exist_ok=True)
     for config in search_space:
+        if config.batch_size > max_mini_batch_size:
+            if config.batch_size % max_mini_batch_size != 0:
+                print(
+                    f"Skipping {config=}: "
+                    f"Batch size must be a multiple of {max_mini_batch_size=}."
+                )
+                continue
+            batch_size = max_mini_batch_size
+            grad_accumulation_interval = config.batch_size // max_mini_batch_size
+        else:
+            batch_size = config.batch_size
+            grad_accumulation_interval = 1
         train_dataset, _, char_to_idx, _, val_dataset, _ = (
             get_distributed_tatoeba_datasets(
                 data_dir,
                 data_percentage,
                 train_val_test_split,
                 config.seq_len,
-                config.batch_size,
+                batch_size,
                 world_size,
                 include_non_full_batches=True,
             )
@@ -196,6 +213,7 @@ def distributed_tune_gpt2_on_tatoeba(
             report_interval=100,
             eval_result_dir=result_dir,
             verbose=verbose,
+            grad_accumulation_interval=grad_accumulation_interval,
         )
 
 

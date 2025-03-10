@@ -151,6 +151,7 @@ def distributed_train_model(
     report_interval: int = 10,
     eval_result_dir: Optional[str] = None,
     verbose: bool = True,
+    grad_accumulation_interval: int = 1,
 ) -> None:
     """
     Function that runs on each process to train GPT-2 using DDP.
@@ -174,6 +175,8 @@ def distributed_train_model(
         eval_result_dir: The directory to save evaluation results.
             If None, evaluation is skipped.
         verbose: Whether to print detailed messages.
+        grad_accumulation_interval: The number of mini-batches to accumulate
+            gradients over.
     """
 
     batch_size = hyperparameters.batch_size
@@ -242,12 +245,17 @@ def distributed_train_model(
             inputs = batch[:, :-1].contiguous()
             labels = batch[:, 1:].contiguous()
 
-            outputs = model(inputs)
-            loss: torch.Tensor = criterion(outputs, labels)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if (i + 1) % grad_accumulation_interval == 0 or i + 1 == num_batches:
+                outputs = model(inputs)
+                loss: torch.Tensor = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+            else:
+                with model.no_sync():
+                    outputs = model(inputs)
+                    loss: torch.Tensor = criterion(outputs, labels)
+                    loss.backward()
 
             epoch_loss += loss.item()
             batch_count += 1
@@ -333,18 +341,22 @@ def distributed_train_model(
                     (actual_epochs[i], train_losses[i]),
                     textcoords="offset points",
                     xytext=(0, -12),
-                    ha='center',
+                    ha="center",
                     fontsize=8,
-                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                    bbox=dict(
+                        facecolor="white", edgecolor="black", boxstyle="round,pad=0.2"
+                    ),
                 )
                 plt.annotate(
                     f"{val_losses[i]:.2f}",  # Text for val_topk_accuracies
                     (actual_epochs[i], val_losses[i]),  # Position at the data point
                     textcoords="offset points",
                     xytext=(0, 8),  # Offset text slightly below the point
-                    ha='center',
+                    ha="center",
                     fontsize=8,
-                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                    bbox=dict(
+                        facecolor="white", edgecolor="black", boxstyle="round,pad=0.2"
+                    ),
                 )
             plt.xlabel("Epoch")
             plt.ylabel("Loss")
@@ -372,18 +384,25 @@ def distributed_train_model(
                     (actual_epochs[i], val_accuracies[i]),
                     textcoords="offset points",
                     xytext=(0, -12),
-                    ha='center',
+                    ha="center",
                     fontsize=8,
-                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                    bbox=dict(
+                        facecolor="white", edgecolor="black", boxstyle="round,pad=0.2"
+                    ),
                 )
                 plt.annotate(
                     f"{val_topk_accuracies[i]:.2f}",  # Text for val_topk_accuracies
-                    (actual_epochs[i], val_topk_accuracies[i]),  # Position at the data point
+                    (
+                        actual_epochs[i],
+                        val_topk_accuracies[i],
+                    ),  # Position at the data point
                     textcoords="offset points",
                     xytext=(0, 8),  # Offset text slightly below the point
-                    ha='center',
+                    ha="center",
                     fontsize=8,
-                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2')
+                    bbox=dict(
+                        facecolor="white", edgecolor="black", boxstyle="round,pad=0.2"
+                    ),
                 )
             plt.xlabel("Epoch")
             plt.ylabel("Accuracy")

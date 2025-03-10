@@ -230,7 +230,7 @@ def distributed_train_model(
     train_losses, val_losses, val_accuracies, val_topk_accuracies = [], [], [], []
 
     num_batches = len(train_dataloader)
-    total_batches = num_epochs * num_batches
+    total_batches = (num_epochs - start_epoch) * num_batches
     batch_count = 0
     start_time = time.perf_counter()
     for epoch in range(start_epoch, num_epochs):
@@ -316,8 +316,8 @@ def distributed_train_model(
         save_checkpoint(
             model,
             optimizer,
-            num_epochs,
-            os.path.join(checkpoint_dir, f"final_{num_epochs}epochs.pt"),
+            num_epochs - 1,
+            os.path.join(checkpoint_dir, f"final_{num_epochs - 1}epochs.pt"),
             verbose,
         )
 

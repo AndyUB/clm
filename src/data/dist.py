@@ -334,6 +334,7 @@ def get_distributed_tatoeba_datasets(
     batch_size: int,
     world_size: int,
     include_non_full_batches: bool = True,
+    verbose: bool = True,
 ) -> Tuple[
     LengthGroupedBatchDataset,
     LengthGroupedBatchDataset,
@@ -354,12 +355,20 @@ def get_distributed_tatoeba_datasets(
         world_size: The number of workers in distributed training.
         include_non_full_batches: Whether to include non-full batches in the
             training dataset.
+        verbose: Whether to log detailed messages.
 
     Returns:
         The training dataset that can be evenly distributed among workers, the
         leftover dataset, the character-to-index mapping, the index-to-character
         mapping, the validation dataset, and the test dataset.
     """
+
+    if verbose:
+        print(
+            f"Generating datasets for {data_percentage}% of tatoeba: "
+            f"{seq_len=}, {batch_size=}, {world_size=}, {train_val_test_split=}, "
+            f"{include_non_full_batches=}"
+        )
 
     train_pct, val_pct, test_pct = train_val_test_split
     if train_pct <= 0:

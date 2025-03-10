@@ -38,8 +38,10 @@ def search_space_for_gpt2_on_tatoeba_distributed() -> List[HyperparameterConfig]
     # lrs = [1e-6, 1e-4, 1e-2]
     # lrs = [1e-6, 1e-5, 1e-4, 1e-3]
     # lrs = [1e-5, 3e-5, 5e-5, 1e-4]
-    lrs = [5e-5, 1e-4, 3e-4, 5e-4]
+    # lrs = [5e-5, 1e-4, 3e-4, 5e-4]
     # lrs = [1e-5, 1e-3]
+    # lrs = [1e-3]
+    lrs = [5e-3]
     # epochs = [5, 10, 15, 20]
     # epochs = [5, 15, 25]
     # epochs = [10, 20]
@@ -321,14 +323,27 @@ def parse_args() -> Namespace:
 
 def main(args: Namespace) -> None:
     if args.mode == "train":
-        train_val_test_split = [0.8, 0.2, 0]
-        train_dataset, _, char_to_idx, _, val_dataset, _ = (
+        # train_val_test_split = [0.8, 0.2, 0]
+        train_val_test_split = [0.98, 0, 0.02]
+        max_mini_batch_size = 128
+        if args.batch_size > max_mini_batch_size:
+            if args.batch_size % max_mini_batch_size != 0:
+                raise ValueError(
+                    f"Invalid {config=}: "
+                    f"Batch size must be a multiple of {max_mini_batch_size=}."
+                )
+            batch_size = max_mini_batch_size
+            grad_accumulation_interval = args.batch_size // max_mini_batch_size
+        else:
+            batch_size = args.batch_size
+            grad_accumulation_interval = 1
+        train_dataset, _, char_to_idx, _, val_dataset, test_dataset = (
             get_distributed_tatoeba_datasets(
                 args.data_dir,
                 args.data_percentage,
                 train_val_test_split,
                 args.seq_len,
-                args.batch_size,
+                batch_size,
                 args.world_size,
                 args.include_non_full_batches,
             )
@@ -340,7 +355,7 @@ def main(args: Namespace) -> None:
         distributed_train_gpt2_on_tatoeba(
             args.world_size,
             train_dataset,
-            val_dataset,
+            test_dataset,
             vocab_size,
             args.seq_len,
             args.batch_size,
@@ -353,6 +368,7 @@ def main(args: Namespace) -> None:
             args.report_interval,
             args.eval_result_dir,
             not args.silent,
+            grad_accumulation_interval,
         )
     elif args.mode == "tune":
         if args.eval_result_dir is None:

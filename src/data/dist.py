@@ -1,4 +1,5 @@
 import os
+import json
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
@@ -159,6 +160,26 @@ class LengthGroupedBatchDataset(Dataset):
 
         return batch[0]
 
+    def restore(self, idx_to_char: Dict[int, str]) -> Dict[str, int]:
+        """
+        Restore the batches in this dataset into sequences of text.
+
+        Args:
+            idx_to_char: Index-to-character mapping.
+
+        Returns:
+            A dictionary from a restored sequence to its count, i.e.,
+            the number of times that same restored sequence appears in
+            this dataset.
+        """
+
+        sequence_to_count = dict()
+        for batch in self.batches:
+            for sequence in batch:
+                sequence = "".join(idx_to_char[idx] for idx in sequence)
+                sequence_to_count[sequence] = sequence_to_count.get(sequence, 0) + 1
+        return sequence_to_count
+
 
 def batches_to_dataset(
     train_bundle: List[List[List[int]]],
@@ -187,6 +208,7 @@ def sentences_to_train_dataset(
     batch_size: int,
     world_size: int,
     include_non_full_batches: bool = True,
+    leftover_sequences: Dict[str, int] = None,
 ) -> Tuple[
     LengthGroupedBatchDataset,
     LengthGroupedBatchDataset,
@@ -203,6 +225,7 @@ def sentences_to_train_dataset(
         world_size: Number of workers.
         include_non_full_batches: Whether to include non-full batches in the
             training dataset.
+        leftover_sequences: A dictionary from each leftover sequence to its count.
 
     Returns:
         The training dataset, the leftover dataset, the character-to-index mapping,
@@ -213,6 +236,15 @@ def sentences_to_train_dataset(
     char_to_idx = {char: idx for idx, char in enumerate(unique_chars)}
     idx_to_char = {idx: char for char, idx in char_to_idx.items()}
     sequences = sentences_to_sequences(sentences, seq_len, char_to_idx)
+    if leftover_sequences is not None:
+        filtered_sequences = []
+        for sequence in sequences:
+            sequence_as_text = "".join(idx_to_char[idx] for idx in sequence)
+            if leftover_sequences.get(sequence_as_text, 0) > 0:
+                leftover_sequences[sequence_as_text] -= 1
+            else:
+                filtered_sequences.append(sequence)
+        sequences = filtered_sequences
     full_batches, non_full_batches = sequences_to_batches(
         sequences, batch_size, world_size
     )
@@ -220,6 +252,12 @@ def sentences_to_train_dataset(
         extended_size = len(non_full_batches) // world_size * world_size
         full_batches.extend(non_full_batches[:extended_size])
         non_full_batches = non_full_batches[extended_size:]
+    if leftover_sequences is not None and len(full_batches) % world_size != 0:
+        raise ValueError(
+            "Incorrect leftover sentences are provided. "
+            f"The number of full batches recovered is {len(full_batches)}, "
+            f"not divisible by the number of workers {world_size}"
+        )
     train_dataset, leftover_dataset = batches_to_dataset(
         full_batches,
         non_full_batches,
@@ -276,6 +314,9 @@ def df_to_eval_dataset(
     sentences = [
         "".join(char for char in sentence if char in char_to_idx)
         for sentence in sentences
+    ]
+    sentences = [
+        sentence for sentence in sentences if len(sentence) > 1
     ]
     sequences = sentences_to_sequences(sentences, seq_len, char_to_idx)
     full_batches, non_full_batches = sequences_to_batches(
@@ -336,12 +377,15 @@ def get_distributed_tatoeba_datasets(
     train_path = os.path.join(train_val_test_dir, "train.csv")
     val_path = os.path.join(train_val_test_dir, "val.csv")
     test_path = os.path.join(train_val_test_dir, "test.csv")
+    leftover_path = os.path.join(train_val_test_dir, "leftover.json")
 
     val_dataset = None
     test_dataset = None
     if os.path.exists(train_val_test_dir):
         train_df = read_tatoeba_csv(train_path)
         train_sentences = train_df["sentence"].tolist()
+        with open(leftover_path, "r") as f:
+            leftover_sequences = json.load(f)
         train_dataset, leftover_dataset, char_to_idx, idx_to_char = (
             sentences_to_train_dataset(
                 train_sentences,
@@ -349,6 +393,7 @@ def get_distributed_tatoeba_datasets(
                 batch_size,
                 world_size,
                 include_non_full_batches,
+                leftover_sequences,
             )
         )
         val_dataset = csv_to_eval_dataset(
@@ -394,6 +439,9 @@ def get_distributed_tatoeba_datasets(
                 include_non_full_batches,
             )
         )
+        leftover_sequences = leftover_dataset.restore(idx_to_char)
+        with open(leftover_path, "w") as f:
+            json.dump(leftover_sequences, f)
         if val_pct > 0:
             val_dataset = df_to_eval_dataset(
                 val_df,

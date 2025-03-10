@@ -60,7 +60,7 @@ def load_tatoeba(
         with tarfile.open(archive_path, "r:bz2") as tar:
             tar.extractall(extract_path)
 
-    csv_name = "sentences.csv"
+    csv_name = "sentences_preprocessed.csv"
     if percentage == 1:
         prefixed_csv_name = csv_name
     else:
@@ -69,7 +69,21 @@ def load_tatoeba(
 
     if not os.path.exists(prefixed_csv_path):
         csv_path = os.path.join(extract_path, csv_name)
-        df = read_tatoeba_csv(csv_path)
+        if not os.path.exists(csv_path):
+            csv_without_duplicates_name = "sentences_unique.csv"
+            csv_without_duplicates_path = os.path.join(extract_path, csv_without_duplicates_name)
+            if not os.path.exists(csv_without_duplicates_path):
+                csv_with_duplicates_name = "sentences.csv"
+                csv_with_duplicates_path = os.path.join(extract_path, csv_with_duplicates_name)
+                df = read_tatoeba_csv(csv_with_duplicates_path)
+                df = df.drop_duplicates(subset=["sentence"])
+                df.to_csv(csv_without_duplicates_path, sep="\t", index=False, header=False)
+            else:
+                df = read_tatoeba_csv(csv_without_duplicates_path)
+            df = df[df['sentence'].str.len() > 1]  # Keep sentences with length > 1
+            df.to_csv(csv_path, sep="\t", index=False, header=False)
+        else:
+            df = read_tatoeba_csv(csv_path)
         df = df.sample(frac=percentage)
         df.to_csv(prefixed_csv_path, sep="\t", index=False, header=False)
     else:
@@ -77,6 +91,12 @@ def load_tatoeba(
 
     if verbose:
         print(f"Number of sentences in the tatoeba dataset: {len(df)}")
+        length_to_count = dict()
+        for sentence in df["sentence"].tolist():
+            length_to_count[len(sentence)] = length_to_count.get(len(sentence), 0) + 1
+        print("Sentence length distribution")
+        for length, count in length_to_count.items():
+            print(f"Length: {length}, Count: {count}")
         lang_counts = df.groupby("lang")["sentence"].count().reset_index()
         lang_counts = lang_counts.sort_values(by="sentence", ascending=False)
         print(f"Total number of languages: {lang_counts.shape[0]}")

@@ -86,6 +86,7 @@ def distributed_evaluate_model(
     accuracy_fn: Callable[[Any, torch.Tensor, int], Tuple[int, int, int]],
     k: int,
     device: torch.device,
+    verbose: bool = False,
 ) -> Tuple[float, float, float]:
     """
     Evaluate the model on the validation set.
@@ -96,6 +97,7 @@ def distributed_evaluate_model(
         loss_fn: The loss function to use.
         accuracy_fn: The accuracy function to use.
         device: The device to run the model on.
+        verbose: Whether to print detailed information.
 
     Returns:
         The average loss, accuracy, and top-3 accuracy.
@@ -113,6 +115,9 @@ def distributed_evaluate_model(
             batch = batch.to(device)
             inputs = batch[:, :-1].contiguous()
             labels = batch[:, 1:].contiguous()
+            if verbose:
+                print(f"inputs shape: {inputs.shape}")
+                print(f"labels shape: {labels.shape}")
 
             outputs = model(inputs)
             loss: torch.Tensor = loss_fn(outputs, labels)
@@ -178,7 +183,7 @@ def distributed_train_model(
 
     # Set up environment variables for DDP
     os.environ["MASTER_ADDR"] = "127.0.0.1"
-    os.environ["MASTER_PORT"] = "8888"
+    os.environ["MASTER_PORT"] = "16384"
 
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     if verbose:

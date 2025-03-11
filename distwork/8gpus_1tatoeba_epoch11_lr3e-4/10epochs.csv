@@ -1,0 +1,2 @@
+sequence_length,batch_size,learning_rate,epoch,train_loss,val_loss,val_accuracy,val_topk_accuracy
+200,512,0.0003,10,1.0989475655497583,1.432751070481717,0.599947493999893,0.7845740396722805

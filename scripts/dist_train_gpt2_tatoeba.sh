@@ -9,8 +9,8 @@ num_gpus=8
 data_pct=1
 seq_len=200
 batch_size=512
-lr=0.0005
-epochs=20
+lr=0.0003
+epochs=10
 
 export PYTHONUNBUFFERED=1
 export HF_HOME="$HOME/.cache/huggingface"
@@ -25,7 +25,7 @@ python3 -m main.dist \
     --epochs $epochs \
     --include-non-full-batches \
     --checkpoint-dir ../distwork/${num_gpus}gpus_${data_pct}tatoeba \
-    --checkpoint-file final_10epochs.pt \
+    --checkpoint-file epoch8.pt \
     --checkpoint-interval 1 \
     --report-interval 100 \
     --eval-result-dir ../distwork/${num_gpus}gpus_${data_pct}tatoeba \

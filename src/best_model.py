@@ -3,7 +3,7 @@ import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace
 
 from main.gpt2_tatoeba import train_gpt2_on_tatoeba
-from main.util import gpt2_inference
+from main.inference_o import gpt2_inference_o
 
 
 def parse_args() -> Namespace:
@@ -40,12 +40,12 @@ def main(args: Namespace) -> None:
             data_path="data/tatoeba", output_path=args.work_dir, k=3
         )
     elif args.mode == "test":
-        gpt2_inference(
+        gpt2_inference_o(
             model_path=args.work_dir,
             input_path=args.test_data,
             output_path=args.test_output,
             k=3,
-            verbose=False,
+            verbose=True,
         )
     else:
         raise NotImplementedError("Unknown mode {}".format(args.mode))

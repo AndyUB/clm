@@ -32,6 +32,7 @@ def main(args: Namespace) -> None:
     checkpoint_dir: str = args.checkpoint_dir
     checkpoint_file: str = args.checkpoint_file
     output_dir: str = args.output_dir
+    model_file = "model.pt"
     char_to_idx_file = "char_to_idx.json"
 
     checkpoint_path = os.path.join(checkpoint_dir, checkpoint_file)
@@ -50,7 +51,7 @@ def main(args: Namespace) -> None:
     model = load_gpt2_model(vocab_size)
     model.load_state_dict(checkpoint["model_state_dict"])
     print("Loaded model")
-    torch.save(model.state_dict(), os.path.join(output_dir, checkpoint_file))
+    torch.save(model.state_dict(), os.path.join(output_dir, model_file))
     print(f"Saved model at {output_dir}")
     with open(os.path.join(output_dir, char_to_idx_file), "w") as f:
         json.dump(char_to_idx, f)

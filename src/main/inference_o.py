@@ -99,7 +99,6 @@ def gpt2_inference_o(
     input_path: str,
     output_path: str,
     k: int,
-    verbose: bool = True,
 ) -> None:
     """
     Generate predictions with the trained GPT-2 model. The model has no padding token.
@@ -109,7 +108,6 @@ def gpt2_inference_o(
         input_path: The path to the input data for inference.
         output_path: The path to save the predictions.
         k: k for top-k predictions.
-        verbose: Whether to print outputs.
     """
 
     SEQ_LEN = 200
@@ -117,8 +115,6 @@ def gpt2_inference_o(
 
     model_file = os.path.join(model_path, "model.pt")
     char_to_idx_file = os.path.join(model_path, "char_to_idx.json")
-    if verbose:
-        print("Loading model...")
     with open(char_to_idx_file, "r") as file:
         char_to_idx: Dict[str, int] = json.load(file)
     idx_to_char: Dict[int, str] = {idx: char for char, idx in char_to_idx.items()}
@@ -135,8 +131,6 @@ def gpt2_inference_o(
     sentences = [
         sentence[:-1] for sentence in sentences
     ]  # Remove newline character
-    if verbose:
-        print("Generating predictions...")
     predictions = gpt2_batch_predict_o(
         model,
         sentences,

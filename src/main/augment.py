@@ -43,7 +43,7 @@ def parse_args() -> Namespace:
 def main() -> None:
     args = parse_args()
     if args.sentences_path:
-        sentences_path = args.sentences_path    
+        sentences_path = args.sentences_path
     else:
         with open(args.input_path, "r") as f:
             sentences = f.readlines()

@@ -45,7 +45,6 @@ def main(args: Namespace) -> None:
             input_path=args.test_data,
             output_path=args.test_output,
             k=3,
-            verbose=True,
         )
     else:
         raise NotImplementedError("Unknown mode {}".format(args.mode))
